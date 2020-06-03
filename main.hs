@@ -1,4 +1,6 @@
 import qualified Data.Map as Map
+import qualified Data.Char as Char
+import qualified Data.List as List
 
 data JsonValue = JsonObj (Map.Map String JsonValue) | JsonArr [JsonValue] | JsonString String | JsonInt Int | JsonDouble Double  | JsonNull
 
@@ -16,6 +18,38 @@ skipQuoted' acc (r:remaining) = skipQuoted' (r:acc) remaining
 skipQuoted :: String -> Maybe (String, String)
 skipQuoted = skipQuoted' ""
 
+
+-- Grab all of the string conpromising a number, and return the rest in the second element
+takeNumber' :: String -> String -> Maybe (String, String)
+takeNumber' = undefined
+
+takeNumber :: String -> Maybe (String, String)
+takeNumber = undefined
+
+
+-- Turn the raw JSON string into a list of distinct tokens
+tokenize' :: [String] -> String -> Maybe [String]
+tokenize' acc "" = Just (reverse acc)
+tokenize' acc ('{':remaining) = tokenize' ("{":acc) remaining
+tokenize' acc ('}':remaining) = tokenize' ("}":acc) remaining
+tokenize' acc ('[':remaining) = tokenize' ("[":acc) remaining
+tokenize' acc (']':remaining) = tokenize' ("]":acc) remaining
+tokenize' acc (',':remaining) = tokenize' (",":acc) remaining
+tokenize' acc (':':remaining) = tokenize' (":":acc) remaining
+tokenize' acc ('"':remaining) = skipQuoted remaining >>= f
+    where f (quoted, unquoted) = tokenize' (('"':quoted):acc) unquoted
+tokenize' acc (r:remaining)
+    | Char.isSpace r = tokenize' acc remaining
+    | Char.isDigit r = takeNumber remaining >>= f
+    | r == 'n' && "ull" `List.isPrefixOf` remaining = tokenize' ("null":acc) $ drop 3 remaining
+    | otherwise = Nothing
+        where f (number, notnumber) = tokenize' (number:acc) notnumber
+
+tokenize :: String -> Maybe [String]
+tokenize = tokenize' []
+
+
+{-
 -- Grab all of the string up to but exluding the closing brace, and return the rest in the second element.
 -- Deals with \ escape
 untilMatchingBrace' :: Int -> String -> String -> Maybe (String, String)
@@ -38,5 +72,7 @@ splitKVPairs = undefined
 
 parse :: String -> Either String JsonValue
 parse = undefined
+-}
 
-main = undefined
+main = do
+    print $ tokenize "{\"Hello there\":null}"
