@@ -4,6 +4,9 @@ import qualified Data.List as List
 
 data JsonValue = JsonObj (Map.Map String JsonValue) | JsonArr [JsonValue] | JsonString String | JsonInt Int | JsonDouble Double  | JsonNull
 
+isDelim :: Char -> Bool
+isDelim = flip elem "{}[]:,"
+
 -- Grab all of the string up to and including the next quote, and return the rest in the second element
 -- Deals with \ escape
 skipQuoted' :: String -> String -> Maybe (String, String)
@@ -19,32 +22,35 @@ skipQuoted :: String -> Maybe (String, String)
 skipQuoted = skipQuoted' ""
 
 
--- Grab all of the string conpromising a number, and return the rest in the second element
+-- Grab all of the string compromising a number, and return the rest in the second element
 takeNumber' :: String -> String -> Maybe (String, String)
-takeNumber' = undefined
+takeNumber' acc "" = if length (filter (== '.') acc) <= 1
+    then Just (reverse acc, "")
+    else Nothing
+takeNumber' acc (r:remaining)
+    | Char.isDigit r || r == '.' = takeNumber' (r:acc) remaining
+    | (Char.isSpace r || isDelim r) && length (filter (== '.') acc) <= 1 = Just (reverse acc, r:remaining)
+    | otherwise = Nothing
 
+-- Preapply accumulator
 takeNumber :: String -> Maybe (String, String)
-takeNumber = undefined
+takeNumber = takeNumber' ""
 
 
 -- Turn the raw JSON string into a list of distinct tokens
 tokenize' :: [String] -> String -> Maybe [String]
 tokenize' acc "" = Just (reverse acc)
-tokenize' acc ('{':remaining) = tokenize' ("{":acc) remaining
-tokenize' acc ('}':remaining) = tokenize' ("}":acc) remaining
-tokenize' acc ('[':remaining) = tokenize' ("[":acc) remaining
-tokenize' acc (']':remaining) = tokenize' ("]":acc) remaining
-tokenize' acc (',':remaining) = tokenize' (",":acc) remaining
-tokenize' acc (':':remaining) = tokenize' (":":acc) remaining
 tokenize' acc ('"':remaining) = skipQuoted remaining >>= f
     where f (quoted, unquoted) = tokenize' (('"':quoted):acc) unquoted
 tokenize' acc (r:remaining)
+    | isDelim r = tokenize' ([r]:acc) remaining
     | Char.isSpace r = tokenize' acc remaining
     | Char.isDigit r = takeNumber remaining >>= f
     | r == 'n' && "ull" `List.isPrefixOf` remaining = tokenize' ("null":acc) $ drop 3 remaining
     | otherwise = Nothing
-        where f (number, notnumber) = tokenize' (number:acc) notnumber
+        where f (number, notnumber) = tokenize' ((r:number):acc) notnumber
 
+-- Preapply accumulator
 tokenize :: String -> Maybe [String]
 tokenize = tokenize' []
 
@@ -75,4 +81,4 @@ parse = undefined
 -}
 
 main = do
-    print $ tokenize "{\"Hello there\":null}"
+    print $ tokenize "{\"Hello there\":null, \"How is it going?\": 10.42}"
