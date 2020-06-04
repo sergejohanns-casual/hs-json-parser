@@ -2,6 +2,7 @@ import qualified Data.Map as Map
 import qualified Data.Char as Char
 import qualified Data.List as List
 
+data Token = DelimToken | NumberToken | StringToken | NullToken deriving Show
 data JsonValue = JsonObj (Map.Map String JsonValue) | JsonArr [JsonValue] | JsonString String | JsonInt Int | JsonDouble Double  | JsonNull
 
 isDelim :: Char -> Bool
@@ -38,22 +39,24 @@ takeNumber = takeNumber' ""
 
 
 -- Turn the raw JSON string into a list of distinct tokens
-tokenize' :: [String] -> String -> Maybe [String]
+tokenize' :: [(Token, String)] -> String -> Maybe [(Token, String)]
 tokenize' acc "" = Just (reverse acc)
 tokenize' acc ('"':remaining) = skipQuoted remaining >>= f
-    where f (quoted, unquoted) = tokenize' (('"':quoted):acc) unquoted
+    where f (quoted, unquoted) = tokenize' ((StringToken, '"':quoted):acc) unquoted
 tokenize' acc (r:remaining)
-    | isDelim r = tokenize' ([r]:acc) remaining
+    | isDelim r = tokenize' ((DelimToken, [r]):acc) remaining
     | Char.isSpace r = tokenize' acc remaining
     | Char.isDigit r = takeNumber remaining >>= f
-    | r == 'n' && "ull" `List.isPrefixOf` remaining = tokenize' ("null":acc) $ drop 3 remaining
+    | r == 'n' && "ull" `List.isPrefixOf` remaining = tokenize' ((NullToken, "null"):acc) $ drop 3 remaining
     | otherwise = Nothing
-        where f (number, notnumber) = tokenize' ((r:number):acc) notnumber
+        where f (number, notnumber) = tokenize' ((NumberToken, r:number):acc) notnumber
 
 -- Preapply accumulator
-tokenize :: String -> Maybe [String]
+tokenize :: String -> Maybe [(Token, String)]
 tokenize = tokenize' []
 
+
+-- Parse a JSON value
 
 {-
 -- Grab all of the string up to but exluding the closing brace, and return the rest in the second element.
