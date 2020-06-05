@@ -131,8 +131,8 @@ parseObj = parseObj' Map.empty
 
 -- Parse a JSON value
 parse :: [(Token, String)] -> Maybe JsonValue
-parse [(NullToken, _)] = return JsonNull
-parse [(StringToken, s)] = return (JsonString s)
+parse [(NullToken, _)] = Just JsonNull
+parse [(StringToken, s)] = Just (JsonString s)
 parse [(NumberToken, n)]
     | '.' `elem` n = JsonDouble <$> Read.readMaybe n
     | otherwise = JsonInt <$> Read.readMaybe n
